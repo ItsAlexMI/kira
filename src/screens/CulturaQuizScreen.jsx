@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
@@ -29,85 +30,91 @@ export default function CulturaQuizScreen() {
   const resultOpacity = React.useRef(new Animated.Value(0)).current;
   const resultTranslate = React.useRef(new Animated.Value(30)).current;
 
-  React.useEffect(() => {
-    (async () => {
-      let alreadyCompleted = false;
-      let uid = null;
-      try {
-        const raw = await AsyncStorage.getItem('kira.session');
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          const rid = resolveUserId(parsed);
-          if (rid != null) {
-            const numeric = Number(rid);
-            uid = Number.isFinite(numeric) ? numeric : rid;
-            setUserId(uid);
-            console.log('[CulturaQuiz] Resolved user id =>', uid);
-          } else {
-            console.log('[CulturaQuiz] No user id found in session');
-          }
-        }
-      } catch {}
-      try {
-        const key = `kira.quiz.completed.${QUIZ_ID}.${uid ?? 'anon'}`;
-        const done = await AsyncStorage.getItem(key);
-        if (done === 'true') {
-          setCompleted(true);
-          alreadyCompleted = true;
-          try {
-            const statsRaw = await AsyncStorage.getItem(`kira.quiz.result.${QUIZ_ID}.${uid ?? 'anon'}`);
-            if (statsRaw) {
-              const stats = JSON.parse(statsRaw);
-              setStoredResult(stats);
-              setFinalResult(stats);
-              if (typeof stats?.correct === 'number') setCorrectCount(stats.correct);
+  useFocusEffect(
+    React.useCallback(() => {
+      let mounted = true;
+      (async () => {
+        let alreadyCompleted = false;
+        let uid = null;
+        try {
+          const raw = await AsyncStorage.getItem('kira.session');
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            const rid = resolveUserId(parsed);
+            if (rid != null) {
+              const numeric = Number(rid);
+              uid = Number.isFinite(numeric) ? numeric : rid;
+              if (mounted) setUserId(uid);
+              console.log('[CulturaQuiz] Resolved user id =>', uid);
+            } else {
+              console.log('[CulturaQuiz] No user id found in session');
             }
-          } catch {}
-        }
-      } catch {}
-      try {
-        setLoading(true);
-        const res = await fetch(`https://kira-pink-theta.vercel.app/actividades/obtenerCuestionario/${QUIZ_ID}`);
-        const json = await res.json();
-        if (!res.ok) throw new Error(json?.message || 'No se pudo obtener el cuestionario');
-        const normalizeQuiz = (payload) => {
-          let root = payload;
-          if (root?.data) root = root.data;
-          if (Array.isArray(root)) {
-            const item = root.find((x) => x && (x.cuestionario || x.preguntas)) || root[0];
-            root = item?.cuestionario ?? item;
           }
-          if (root?.cuestionario) root = root.cuestionario;
-          const preguntas = Array.isArray(root?.preguntas) ? root.preguntas : [];
-          return {
-            titulo: root?.titulo ?? 'Cuestionario',
-            descripcion: root?.descripcion ?? '',
-            tipo: root?.tipo ?? '',
-            puntaje: root?.puntaje ?? 0,
-            preguntas,
+        } catch {}
+        try {
+          const key = `kira.quiz.completed.${QUIZ_ID}.${uid ?? 'anon'}`;
+          const done = await AsyncStorage.getItem(key);
+          if (done === 'true') {
+            if (mounted) setCompleted(true);
+            alreadyCompleted = true;
+            try {
+              const statsRaw = await AsyncStorage.getItem(`kira.quiz.result.${QUIZ_ID}.${uid ?? 'anon'}`);
+              if (statsRaw) {
+                const stats = JSON.parse(statsRaw);
+                if (mounted) setStoredResult(stats);
+                if (mounted) setFinalResult(stats);
+                if (typeof stats?.correct === 'number' && mounted) setCorrectCount(stats.correct);
+              }
+            } catch {}
+          } else {
+            if (mounted) setCompleted(false);
+          }
+        } catch {}
+        try {
+          if (mounted) setLoading(true);
+          const res = await fetch(`https://kira-pink-theta.vercel.app/actividades/obtenerCuestionario/${QUIZ_ID}`);
+          const json = await res.json();
+          if (!res.ok) throw new Error(json?.message || 'No se pudo obtener el cuestionario');
+          const normalizeQuiz = (payload) => {
+            let root = payload;
+            if (root?.data) root = root.data;
+            if (Array.isArray(root)) {
+              const item = root.find((x) => x && (x.cuestionario || x.preguntas)) || root[0];
+              root = item?.cuestionario ?? item;
+            }
+            if (root?.cuestionario) root = root.cuestionario;
+            const preguntas = Array.isArray(root?.preguntas) ? root.preguntas : [];
+            return {
+              titulo: root?.titulo ?? 'Cuestionario',
+              descripcion: root?.descripcion ?? '',
+              tipo: root?.tipo ?? '',
+              puntaje: root?.puntaje ?? 0,
+              preguntas,
+            };
           };
-        };
-        const normalized = normalizeQuiz(json);
-        setQuiz(normalized);
-        setIdx(0);
-        setError(null);
-        if (alreadyCompleted) {
-          const totalQs = Array.isArray(normalized?.preguntas) ? normalized.preguntas.length : 0;
-          setIdx(totalQs);
-          resultOpacity.setValue(0);
-          resultTranslate.setValue(30);
-          Animated.parallel([
-            Animated.timing(resultOpacity, { toValue: 1, duration: 350, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-            Animated.timing(resultTranslate, { toValue: 0, duration: 350, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-          ]).start();
+          const normalized = normalizeQuiz(json);
+          if (mounted) setQuiz(normalized);
+          if (mounted) setIdx(0);
+          if (mounted) setError(null);
+          if (alreadyCompleted) {
+            const totalQs = Array.isArray(normalized?.preguntas) ? normalized.preguntas.length : 0;
+            if (mounted) setIdx(totalQs);
+            resultOpacity.setValue(0);
+            resultTranslate.setValue(30);
+            Animated.parallel([
+              Animated.timing(resultOpacity, { toValue: 1, duration: 350, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+              Animated.timing(resultTranslate, { toValue: 0, duration: 350, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+            ]).start();
+          }
+        } catch (e) {
+          if (mounted) setError(e?.message || 'Error de red');
+        } finally {
+          if (mounted) setLoading(false);
         }
-      } catch (e) {
-        setError(e?.message || 'Error de red');
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+      })();
+      return () => { mounted = false; };
+    }, [])
+  );
 
   const preguntas = quiz?.preguntas || [];
   const total = preguntas.length || 0;

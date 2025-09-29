@@ -1,8 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { LogOut } from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { FlatList, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -227,19 +228,48 @@ export default function IndexScren() {
     const aspect = asset && asset.width && asset.height ? asset.width / asset.height : 16 / 9;
     return { key: `discover-${idx}`, src, aspect };
   });
-  const [userEmail, setUserEmail] = useState(null);
-  useEffect(() => {
-    (async () => {
-      try {
-        const raw = await AsyncStorage.getItem('kira.session');
-        const session = raw ? JSON.parse(raw) : null;
-        setUserEmail(session?.correo || null);
-      } catch {
-        setUserEmail(null);
-      }
-    })();
-  }, []);
-  const userHandle = userEmail ? String(userEmail).split('@')[0] : 'usuario';
+  const [userHandle, setUserHandle] = useState('usuario');
+  const [userPoints, setUserPoints] = useState(0);
+  useFocusEffect(
+    React.useCallback(() => {
+      let mounted = true;
+      (async () => {
+        try {
+          const raw = await AsyncStorage.getItem('kira.session');
+          const session = raw ? JSON.parse(raw) : null;
+          const id = session?.userId ?? session?.idUsuario ?? session?.id;
+          if (id) {
+            try {
+              const res = await fetch(`https://kira-pink-theta.vercel.app/users/nombreUsuario/${id}`);
+              const json = await res.json();
+              if (mounted && res.ok && json?.nombre) {
+                setUserHandle(json.nombre);
+              } else if (mounted) {
+                setUserHandle('usuario');
+              }
+            } catch { if (mounted) setUserHandle('usuario'); }
+            try {
+              const resScore = await fetch(`https://kira-pink-theta.vercel.app/users/puntajeUsuario/${id}`);
+              const jsonScore = await resScore.json();
+              if (mounted && resScore.ok && jsonScore?.puntaje != null) {
+                const scoreNum = Number(jsonScore.puntaje);
+                setUserPoints(Number.isFinite(scoreNum) ? scoreNum : 0);
+              } else if (mounted) {
+                setUserPoints(0);
+              }
+            } catch { if (mounted) setUserPoints(0); }
+          } else {
+            if (mounted) setUserHandle('usuario');
+            if (mounted) setUserPoints(0);
+          }
+        } catch {
+          if (mounted) setUserHandle('usuario');
+          if (mounted) setUserPoints(0);
+        }
+      })();
+      return () => { mounted = false; };
+    }, [])
+  );
   return (
     <View className="flex-1 bg-[#F1F1F1]">
       <ScrollView contentContainerStyle={{ paddingBottom: 80 }}>
@@ -287,7 +317,7 @@ export default function IndexScren() {
                 />
                 <Text className="text-xs text-gray-700">
                   <Text className="text-[#FEBA69] font-extrabold">Puntaje: </Text>
-                  <Text className="text-[#8B8B8B] text-sm">1000</Text>
+                  <Text className="text-[#8B8B8B] text-sm">{userPoints}</Text>
                 </Text>
               </View>
             </View>
@@ -324,7 +354,14 @@ export default function IndexScren() {
         <View className="mt-6 px-4">
           <Text className="text-lg font-extrabold text-[#2469A0]">Resuelve actividades para ganar puntos</Text>
           <View className="mt-3">
-            <View className="rounded-2xl overflow-hidden">
+            <TouchableOpacity
+              className="rounded-2xl overflow-hidden"
+              activeOpacity={0.85}
+              onPress={() => router.push('/adivina-quien-soy')}
+              accessibilityRole="button"
+              accessibilityLabel="Ir a Adivina quién soy"
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            >
               <LinearGradient
                 colors={["#10BCE2", "#13A4C4"]}
                 start={{ x: 0, y: 0 }}
@@ -340,7 +377,7 @@ export default function IndexScren() {
                   <Text className="text-white font-extrabold text-base">Adivina quién soy</Text>
                 </View>
               </LinearGradient>
-            </View>
+            </TouchableOpacity>
 
             <TouchableOpacity
               className="rounded-2xl overflow-hidden mt-2"

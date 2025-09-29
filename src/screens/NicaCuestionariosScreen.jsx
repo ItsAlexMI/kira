@@ -83,7 +83,14 @@ export default function NicaCuestionariosScreen() {
           <Text className="text-white font-extrabold text-lg text-center">Cultura Nicaraguense</Text>
         </TouchableOpacity>
 
-        <View className="rounded-2xl overflow-hidden h-44 items-center justify-center" style={{ elevation: 3 }}>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => router.push('/quiz-gastronomia')}
+          className="rounded-2xl overflow-hidden h-44 mb-3 items-center justify-center"
+          style={{ elevation: 3 }}
+          accessibilityRole="button"
+          accessibilityLabel="Abrir cuestionario de Gastronomía"
+        >
           <LinearGradient
             colors={["#FEBA69", "#D29C5D"]}
             start={{ x: 0, y: 0 }}
@@ -98,7 +105,7 @@ export default function NicaCuestionariosScreen() {
             />
           </View>
           <Text className="text-white font-extrabold text-lg text-center">Gastronomía Nicaraguense</Text>
-        </View>
+        </TouchableOpacity>
       </ScrollView>
       <SafeAreaView edges={['bottom']} className="absolute bottom-0 left-0 right-0 bg-[#D9D9D9]">
         <Text className="text-center text-[#797979] font-semibold py-2">Más cuestionarios pronto...</Text>

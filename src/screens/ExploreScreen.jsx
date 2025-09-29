@@ -42,6 +42,7 @@ export default function ExploreScreen() {
         require('../../assets/images/video.mp4'),
       ],
     },
+    
   ];
 
   const [selectedId, setSelectedId] = useState(null);

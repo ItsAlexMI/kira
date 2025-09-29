@@ -1,17 +1,23 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 import { Asset } from 'expo-asset';
 import { Video } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as MediaLibrary from 'expo-media-library';
+import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Animated, Dimensions, FlatList, Image, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, Dimensions, FlatList, Image, KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const REACTION_ENDPOINT = 'https://kira-pink-theta.vercel.app/posts/reaccion';
+const REMOVE_REACTION_ENDPOINT = 'https://kira-pink-theta.vercel.app/posts/quitarReaccion';
 
 export default function ShareScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const [imgError, setImgError] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('Todas');
   const [fullImageVisible, setFullImageVisible] = useState(false);
@@ -30,7 +36,38 @@ export default function ShareScreen() {
 
   const [currentEmail, setCurrentEmail] = useState(null);
   const [userId, setUserId] = useState(null); // for likes API
-  const [liked, setLiked] = useState({});
+  const [deleteCardVisible, setDeleteCardVisible] = useState(false);
+  const [deleteTargetPost, setDeleteTargetPost] = useState(null);
+  const [confirmDeleteVisible, setConfirmDeleteVisible] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const DELETE_POST_API = 'https://kira-pink-theta.vercel.app/posts/eliminarPost';
+  const handleDeletePost = async () => {
+    if (!deleteTargetPost || !userId) return;
+    setDeleteBusy(true);
+    try {
+      const payload = { idPost: String(deleteTargetPost.id), idUsuario: String(userId) };
+      const res = await fetch(DELETE_POST_API, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      let raw = null; try { raw = await res.text(); } catch {}
+      let json = null; try { json = raw ? JSON.parse(raw) : null; } catch {}
+      if (!res.ok) {
+        let msg = json?.message || raw || 'Error al borrar';
+        throw new Error(msg);
+      }
+      setDeleteCardVisible(false);
+      setConfirmDeleteVisible(false);
+      setDeleteTargetPost(null);
+      fetchPosts();
+    } catch (e) {
+      setError(e?.message || 'No se pudo borrar el post');
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
+  const [liked, setLiked] = useState({}); // id -> bool (API)
   const [likeBusy, setLikeBusy] = useState({}); // id -> true mientras se manda
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -43,6 +80,98 @@ export default function ShareScreen() {
   const [createError, setCreateError] = useState(null);
   const [showToast, setShowToast] = useState(false);
   const [posts, setPosts] = useState([]); // listado de posts obtenidos del backend
+  const [commentsVisible, setCommentsVisible] = useState(false);
+  const [commentsPostId, setCommentsPostId] = useState(null);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [comments, setComments] = useState([]);
+  const [commentsError, setCommentsError] = useState(null);
+  const [commentText, setCommentText] = useState('');
+  const [commentBusy, setCommentBusy] = useState(false);
+  const COMMENTS_API = 'https://kira-pink-theta.vercel.app/posts/comentario';
+  const DELETE_COMMENT_API = 'https://kira-pink-theta.vercel.app/posts/quitarComentario';
+  const GET_POST_API = 'https://kira-pink-theta.vercel.app/posts/obtenerPost';
+
+  const fetchComments = async (postId) => {
+  const handleDeleteComment = async (idComentario) => {
+    if (!userId || !idComentario) return;
+    try {
+      const payload = { idComentario: String(idComentario), idUsuario: String(userId) };
+      const res = await fetch(DELETE_COMMENT_API, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      let raw = null; try { raw = await res.text(); } catch {}
+      let json = null; try { json = raw ? JSON.parse(raw) : null; } catch {}
+      if (!res.ok || !json?.success) {
+        setCommentsError(json?.message || raw || 'Error al borrar comentario');
+        return;
+      }
+      fetchComments(commentsPostId);
+    } catch (e) {
+      setCommentsError('No se pudo borrar el comentario');
+    }
+  };
+    setCommentsLoading(true);
+    setCommentsError(null);
+    try {
+      const res = await fetch(`${GET_POST_API}/${postId}`);
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.message || 'Error al obtener comentarios');
+      setComments(Array.isArray(json.comentarios) ? json.comentarios : []);
+    } catch (e) {
+      setCommentsError(e?.message || 'Error de red');
+      setComments([]);
+    } finally {
+      setCommentsLoading(false);
+    }
+  };
+
+  const openComments = (postId) => {
+    setCommentsPostId(postId);
+    setCommentsVisible(true);
+    setCommentText('');
+    fetchComments(postId);
+  };
+
+  const closeComments = () => {
+    setCommentsVisible(false);
+    setCommentsPostId(null);
+    setComments([]);
+    setCommentText('');
+    setCommentsError(null);
+  };
+
+  const submitComment = async () => {
+    if (!userId) return setCommentsError('Debes iniciar sesión');
+    if (!commentText.trim()) return;
+    setCommentBusy(true);
+    setCommentsError(null);
+    try {
+      const payload = {
+        idPost: Number(commentsPostId),
+        idUsuario: Number(userId),
+        texto: commentText.trim(),
+      };
+      const res = await fetch(COMMENTS_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      let raw = null; try { raw = await res.text(); } catch {}
+      let json = null; try { json = raw ? JSON.parse(raw) : null; } catch {}
+      if (!res.ok) {
+        let msg = json?.message || raw || 'Error al comentar';
+        throw new Error(msg);
+      }
+      setCommentText('');
+      fetchComments(commentsPostId);
+    } catch (e) {
+      setCommentsError(e?.message || 'No se pudo comentar');
+    } finally {
+      setCommentBusy(false);
+    }
+  };
 
   const CREATE_ENDPOINT = 'https://kira-pink-theta.vercel.app/posts/create';
 
@@ -52,7 +181,6 @@ export default function ShareScreen() {
     const lastSeg = uri.split('?')[0].split('/').pop() || '';
     let ext = (lastSeg.includes('.') ? lastSeg.split('.').pop() : '').toLowerCase();
     if (!ext) {
-      // Try to guess from uri mime-like hints
       if (/mp4/i.test(uri)) ext = 'mp4';
       else if (/mov/i.test(uri)) ext = 'mov';
       else if (/m4v/i.test(uri)) ext = 'm4v';
@@ -72,12 +200,10 @@ export default function ShareScreen() {
     }
     let name = asset?.fileName || lastSeg;
     if (!name) name = isVideo ? `video.${ext || 'mp4'}` : `image.${ext || 'jpg'}`;
-    // Ensure extension present
     if (name && !/\.[a-zA-Z0-9]{2,4}$/.test(name) && ext) name += `.${ext}`;
     return { mime, name, ext, isVideo };
   };
 
-  // Sin límite local: cualquier tamaño se intentará subir; si el backend rechaza (413) se avisará.
 
   const pickMedia = async () => {
     setCreateError(null);
@@ -102,7 +228,6 @@ export default function ShareScreen() {
         const info = await FileSystem.getInfoAsync(asset.uri, { size: true });
         if (info?.size != null) size = info.size;
       } catch {}
-      // Ya no bloqueamos por tamaño localmente; sólo informativo.
       setCreateMedia({ uri: asset.uri, type: mime, name, isVideo, size });
     } catch (e) {
       setCreateError('No se pudo seleccionar media');
@@ -131,7 +256,6 @@ export default function ShareScreen() {
         const info = await FileSystem.getInfoAsync(asset.uri, { size: true });
         if (info?.size != null) size = info.size;
       } catch {}
-      // Sin límite local.
       setCreateMedia({ uri: asset.uri, type: mime, name, isVideo, size });
     } catch (e) {
       setCreateError('No se pudo capturar media');
@@ -158,7 +282,6 @@ export default function ShareScreen() {
       setCreateError('Selecciona una imagen o video');
       return;
     }
-    // No se aplica límite local; depender del servidor.
     setCreateBusy(true);
     setCreateError(null);
     try {
@@ -171,17 +294,17 @@ export default function ShareScreen() {
       let raw = null; try { raw = await res.text(); } catch {}
       let json = null; try { json = raw ? JSON.parse(raw) : null; } catch {}
       if (!res.ok) {
+        let serverMsg = json?.message || json?.error || raw || 'Error al crear post';
+        let errorDetails = `\nCódigo: ${res.status}`;
+        if (typeof serverMsg === 'object') {
+          const firstVal = Object.values(serverMsg).find(v => typeof v === 'string');
+          serverMsg = firstVal || JSON.stringify(serverMsg);
+        }
         if (res.status === 413) {
           const sizeInfo = createMedia?.size ? ` (${(createMedia.size/(1024*1024)).toFixed(2)}MB)` : '';
-          throw new Error(`El video es muy grande${sizeInfo}. Intenta grabar uno más corto o con menor calidad y vuelve a intentarlo.`);
+          throw new Error(`El video es muy grande${sizeInfo}.\n${serverMsg}${errorDetails}`);
         }
-        // Extract the most human readable message
-        let msg = json?.message || json?.error || raw || 'Error al crear post';
-        if (typeof msg === 'object') {
-          const firstVal = Object.values(msg).find(v => typeof v === 'string');
-          msg = firstVal || JSON.stringify(msg);
-        }
-        throw new Error(String(msg));
+        throw new Error(`${serverMsg}${errorDetails}`);
       }
       resetCreateForm();
       setCreateVisible(false);
@@ -211,10 +334,9 @@ export default function ShareScreen() {
           setCurrentEmail(parsed?.correo ?? null);
           const candidate = parsed?.idUsuario ?? parsed?.userId ?? parsed?.id;
           if (candidate != null) {
-            const num = Number(candidate);
-            setUserId(num);
+            setUserId(String(candidate));
             try {
-              const stored = await AsyncStorage.getItem(LIKE_STORE_KEY(num));
+              const stored = await AsyncStorage.getItem(LIKE_STORE_KEY(String(candidate)));
               if (stored) {
                 const parsedLikes = JSON.parse(stored);
                 if (parsedLikes && typeof parsedLikes === 'object') {
@@ -236,10 +358,29 @@ export default function ShareScreen() {
       const json = await res.json();
       if (!res.ok) throw new Error(json?.message || 'Error al obtener posts');
       const normalized = Array.isArray(json) ? json : (Array.isArray(json?.data) ? json.data : []);
-      const mapped = normalized.map((p) => {
-        const link = p.link_archivo || null;
+      let likedMap = {};
+      let mapped = await Promise.all(normalized.map(async (p) => {
+        let postData = p;
+        try {
+          const resPost = await fetch(`https://kira-pink-theta.vercel.app/posts/obtenerPost/${p.id}`);
+          if (resPost.ok) {
+            postData = await resPost.json();
+          }
+        } catch {}
+        let isLiked = false;
+        if (userId) {
+          try {
+            const resLike = await fetch(`https://kira-pink-theta.vercel.app/posts/verificarLike?idPost=${p.id}&idUsuario=${userId}`);
+            if (resLike.ok) {
+              const likeJson = await resLike.json();
+              isLiked = !!likeJson.liked;
+            }
+          } catch {}
+        }
+        likedMap[p.id] = isLiked;
+        const link = postData.link_archivo || null;
         const video = link && isVideoUrl(link);
-        const rawDate = p.fecha_creación || p.fecha_creacion || p.createdAt || p.created_at || null;
+        const rawDate = postData.fecha_creación || postData.fecha_creacion || postData.createdAt || postData.created_at || null;
         let createdAt = rawDate;
         let createdAtMs = null;
         if (rawDate) {
@@ -250,20 +391,20 @@ export default function ShareScreen() {
             }
         }
         return {
-          id: String(p.id),
-          authorName: p.usuario || 'Usuario',
+          id: String(postData.id),
+          idUsuario: postData.idUsuario ? String(postData.idUsuario) : '',
+          authorName: postData.usuario || 'Usuario',
           authorEmail: null,
           mediaUrl: link,
           isVideo: !!video,
-          likes: Number(p.reacciones) || 0,
-          comments: p.comentarios ? Number(p.comentarios) : 0,
-          description: p.descripcion || '',
-          tipo: (p.tipo || '').toLowerCase(),
+          likes: Number(postData.cantidad_reacciones) || 0,
+          comments: Array.isArray(postData.comentarios) ? postData.comentarios.length : 0,
+          description: postData.descripcion || '',
+          tipo: (postData.tipo || '').toLowerCase(),
           createdAt,
           createdAtMs,
         };
-      });
-      // Sort descending by date (most recent first). Items without date go last.
+      }));
       mapped.sort((a,b) => {
         if (a.createdAtMs && b.createdAtMs) return b.createdAtMs - a.createdAtMs;
         if (a.createdAtMs) return -1;
@@ -271,17 +412,21 @@ export default function ShareScreen() {
         return 0;
       });
       setPosts(mapped);
+      setLiked(likedMap);
     } catch (e) {
       setError(e?.message || 'Error de red');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [userId]);
 
-  useEffect(() => { fetchPosts(); }, [fetchPosts]);
+  useFocusEffect(
+    useCallback(() => {
+      fetchPosts();
+    }, [fetchPosts])
+  );
 
-  // Auto ocultar toast sin renderizar valores no-React
   useEffect(() => {
     if (showToast) {
       const t = setTimeout(() => setShowToast(false), 1800);
@@ -300,13 +445,31 @@ export default function ShareScreen() {
     return likeScaleMap[id];
   };
 
-  const REACTION_ENDPOINT = 'https://kira-pink-theta.vercel.app/posts/reaccion';
+  const REMOVE_REACTION_ENDPOINT = 'https://kira-pink-theta.vercel.app/posts/quitarReaccion';
 
   const sendLikeToApi = async ({ idPost }) => {
     if (userId == null) return { ok: false, reason: 'no-user' };
     try {
-      const payload = { idUsuario: Number(userId), idPost: Number(idPost) };
+      const payload = { idUsuario: String(userId), idPost: String(idPost) };
       const res = await fetch(REACTION_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      let raw = null; try { raw = await res.text(); } catch {}
+      let json = null; try { json = raw ? JSON.parse(raw) : null; } catch {}
+      if (res.ok) return { ok: true, json, raw };
+      return { ok: false, raw, json, status: res.status };
+    } catch (e) {
+      return { ok: false, error: String(e) };
+    }
+  };
+
+  const sendDislikeToApi = async ({ idPost }) => {
+    if (userId == null) return { ok: false, reason: 'no-user' };
+    try {
+      const payload = { idUsuario: String(userId), idPost: String(idPost) };
+      const res = await fetch(REMOVE_REACTION_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify(payload)
@@ -329,34 +492,45 @@ export default function ShareScreen() {
 
   const toggleLike = async (postId) => {
     if (likeBusy[postId]) return;
-    const previous = !!liked[postId];
-    const optimistic = !previous;
-    const nextLikedState = { ...liked, [postId]: optimistic };
-    setLiked(nextLikedState);
-    persistLikes(nextLikedState);
     setLikeBusy((prev) => ({ ...prev, [postId]: true }));
-
+    const previous = !!liked[postId];
+    setLiked((prev) => ({ ...prev, [postId]: !previous }));
     const anim = getLikeAnim(postId);
-    if (optimistic) {
-      anim.setValue(0.9);
-      Animated.sequence([
-        Animated.spring(anim, { toValue: 1.15, useNativeDriver: true, friction: 3 }),
-        Animated.spring(anim, { toValue: 1, useNativeDriver: true, friction: 4 }),
-      ]).start();
-    } else {
-      Animated.spring(anim, { toValue: 1, useNativeDriver: true, friction: 5 }).start();
+    anim.setValue(0.9);
+    Animated.sequence([
+      Animated.spring(anim, { toValue: 1.15, useNativeDriver: true, friction: 3 }),
+      Animated.spring(anim, { toValue: 1, useNativeDriver: true, friction: 4 }),
+    ]).start();
+    try {
+      const endpoint = previous ? REMOVE_REACTION_ENDPOINT : REACTION_ENDPOINT;
+      const payload = { idUsuario: String(userId), idPost: String(postId) };
+      console.log('LIKE payload:', payload, 'endpoint:', endpoint);
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      let raw = null; try { raw = await res.text(); } catch {}
+      console.log('LIKE response:', res.status, raw);
+      try {
+        const resPost = await fetch(`https://kira-pink-theta.vercel.app/posts/obtenerPost/${postId}`);
+        let postData = null;
+        if (resPost.ok) postData = await resPost.json();
+        setPosts((prev) => prev.map(p => p.id === String(postId) ? {
+          ...p,
+          likes: postData ? Number(postData.cantidad_reacciones) || 0 : p.likes,
+        } : p));
+        const resLike = await fetch(`https://kira-pink-theta.vercel.app/posts/verificarLike?idPost=${postId}&idUsuario=${String(userId)}`);
+        let likeJson = null;
+        if (resLike.ok) likeJson = await resLike.json();
+        setLiked((prev) => ({ ...prev, [postId]: likeJson ? !!likeJson.liked : false }));
+      } catch {}
+    } catch (e) {
+      console.log('LIKE error:', e);
+      setError('No se pudo actualizar el like.');
+    } finally {
+      setLikeBusy((prev) => ({ ...prev, [postId]: false }));
     }
-
-    const result = await sendLikeToApi({ idPost: postId });
-    if (!result.ok) {
-      const reverted = { ...nextLikedState, [postId]: previous };
-      setLiked(reverted);
-      persistLikes(reverted);
-      console.log('[Like] fallo reacción', result);
-    } else {
-      console.log('[Like] éxito reacción', result.json || result.raw || '');
-    }
-    setLikeBusy((prev) => ({ ...prev, [postId]: false }));
   };
 
   const saveCurrentImage = async () => {
@@ -463,57 +637,82 @@ export default function ShareScreen() {
     );
   };
 
-  const formatDate = (iso) => {
-    if (!iso) return null;
-    try {
-      const d = new Date(iso);
-      if (isNaN(d.getTime())) return null;
-      // Solo fecha: 26 Sep 2025
-      return d.toLocaleDateString('es-NI', { day: '2-digit', month: 'short', year: 'numeric' }).replace('.', '');
-    } catch { return null; }
-  };
-
   const renderItem = ({ item }) => {
-    const isLiked = !!liked[item.id];
-    const likeCount = item.likes + (isLiked ? 1 : 0);
-    const dateStr = formatDate(item.createdAt);
+    const isMine = userId === item.idUsuario;
+    const likeAnim = getLikeAnim(item.id);
     return (
-      <View className="py-4 border-b border-[#EAEAEA]">
-        <View className="px-4">
-          <View className="flex-row items-center justify-between mb-3">
-            <View className="flex-row items-center">
-              {renderAvatar(40)}
-              <Text className="ml-3 text-sm font-semibold text-[#2D2D2D]">{item.authorName}</Text>
+    <View className="rounded-2xl mb-4 overflow-hidden border-b border-[#EAEAEA]">
+        <View className="flex-row items-center justify-between px-4 pt-4 pb-2">
+          <View className="flex-row items-center">
+            {renderAvatar(40)}
+            <View className="ml-3">
+              <Text className="text-[#2469A0] font-semibold">{item.authorName}</Text>
             </View>
-            <View style={{ width: 20 }} />
           </View>
+          {isMine ? (
+            <Pressable
+              onPress={() => {
+                setDeleteCardVisible(true);
+                setDeleteTargetPost(item);
+              }}
+              hitSlop={10}
+              accessibilityLabel="Borrar publicación"
+            >
+              <Feather name="trash-2" size={24} color="#E53935" />
+            </Pressable>
+          ) : null}
         </View>
+
         {renderMedia(item)}
-        <View className="px-4 flex-row items-center mt-3">
-          <Pressable onPress={() => toggleLike(item.id)} hitSlop={10} disabled={likeBusy[item.id]} className="flex-row items-center mr-6">
-            <Animated.View style={{ transform: [{ scale: getLikeAnim(item.id) }] }}>
-              {isLiked ? (
+
+        <View className="px-4 pb-4 pt-2">
+          <Text className="text-[#999] text-xs mb-1">{formatDate(item.createdAt)}</Text>
+          {item.tipo ? (
+            <View style={{ alignSelf: 'flex-start' }}>
+              <Text className="text-xs font-semibold text-[#10BCE2] bg-[#E1F5FE] rounded-full px-3 py-1 mb-2">
+                {item.tipo.charAt(0).toUpperCase() + item.tipo.slice(1)}
+              </Text>
+            </View>
+          ) : null}
+          <Text className="text-[#757575] text-sm mb-2">{item.description}</Text>
+          <View className="flex-row items-center mt-2">
+            <Pressable
+              onPress={() => toggleLike(item.id)}
+              disabled={likeBusy[item.id]}
+              className="flex-row items-center"
+              hitSlop={10}
+              accessibilityLabel={liked[item.id] ? 'Quitar me gusta' : 'Dar me gusta'}
+            >
+              {liked[item.id] ? (
                 <Ionicons name="heart" size={22} color="#E53935" />
               ) : (
                 <Ionicons name="heart-outline" size={22} color="#8B8B8B" />
               )}
-            </Animated.View>
-            <Text className="ml-2 text-sm font-semibold text-[#8B8B8B]">{likeCount}</Text>
-          </Pressable>
-          <View className="flex-row items-center">
-            <Feather name="message-circle" size={22} color="#8B8B8B" />
-            <Text className="ml-2 text-sm font-semibold text-[#8B8B8B]">{item.comments}</Text>
+              <Text className="ml-2 text-sm font-semibold text-[#8B8B8B]">{item.likes}</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => openComments(item.id)}
+              className="flex-row items-center ml-6"
+              hitSlop={10}
+              accessibilityLabel="Ver comentarios"
+            >
+              <Feather name="message-circle" size={22} color="#8B8B8B" />
+              <Text className="ml-2 text-sm font-semibold text-[#8B8B8B]">{item.comments}</Text>
+            </Pressable>
           </View>
-        </View>
-        <View className="px-4">
-          {dateStr ? (
-            <Text className="mt-3 text-[11px] uppercase tracking-wide text-[#999]">{dateStr}</Text>
-          ) : null}
-          <Text className="mt-1 text-sm text-[#757575]">{item.description}</Text>
         </View>
       </View>
     );
   };
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const postsPerPage = 10;
+
+  const paginatedPosts = useMemo(() => {
+    const start = (currentPage - 1) * postsPerPage;
+    const end = start + postsPerPage;
+    return filteredPosts.slice(start, end);
+  }, [filteredPosts, currentPage]);
 
   return (
     <View className="flex-1 bg-[#F1F1F1]">
@@ -524,7 +723,13 @@ export default function ShareScreen() {
             className="w-[100px] h-[100px]"
             resizeMode="contain"
           />
-          <View className="w-16 h-16 rounded-full overflow-hidden">
+          <Pressable
+            onPress={() => router.push('/profile')}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Ir a perfil"
+            className="w-16 h-16 rounded-full overflow-hidden"
+          >
             <LinearGradient
               colors={["#2667A2", "#10BCE2", "#3ABD9C", "#3ED6AF"]}
               locations={[0, 0.32, 0.7, 1]}
@@ -549,7 +754,7 @@ export default function ShareScreen() {
                 />
               </View>
             </LinearGradient>
-          </View>
+          </Pressable>
         </View>
 
         <View className="px-4 py-3 mt-1 border-t border-b border-[#C2C2C2] bg-transparent">
@@ -599,7 +804,7 @@ export default function ShareScreen() {
           </View>
         ) : (
           <FlatList
-            data={filteredPosts}
+            data={paginatedPosts}
             keyExtractor={(it) => it.id}
             renderItem={renderItem}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#2469A0" />}
@@ -645,6 +850,91 @@ export default function ShareScreen() {
               </View>
             </Pressable>
           </SafeAreaView>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={commentsVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={closeComments}
+      >
+        <View className="flex-1 justify-end">
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <View className="bg-white rounded-t-3xl shadow-2xl p-5 pb-0" style={{ minHeight: 380, maxHeight: '80%' }}>
+              <View className="flex-row items-center justify-between mb-2">
+                <Text className="text-lg font-bold text-[#2469A0]">Comentarios</Text>
+                <Pressable onPress={closeComments} hitSlop={10}>
+                  <Feather name="x" size={28} color="#2469A0" />
+                </Pressable>
+              </View>
+              {commentsLoading ? (
+                <View className="py-8 items-center justify-center">
+                  <ActivityIndicator color="#2469A0" />
+                  <Text className="mt-2 text-[#2469A0] text-sm">Cargando comentarios...</Text>
+                </View>
+              ) : commentsError ? (
+                <View className="py-8 items-center justify-center">
+                  <Text className="text-red-600 text-sm mb-2 text-center">{commentsError}</Text>
+                  <Pressable onPress={() => fetchComments(commentsPostId)} className="px-5 py-2 rounded-full" style={{ backgroundColor: '#2469A0' }}>
+                    <Text className="text-white font-semibold text-sm">Reintentar</Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <FlatList
+                  data={comments}
+                  keyExtractor={(c, idx) => String(c.id || idx)}
+                  renderItem={({ item }) => (
+                    <View className="flex-row items-start mb-4">
+                      <View className="w-9 h-9 rounded-full bg-[#EAEAEA] items-center justify-center mr-3 overflow-hidden">
+                        <Image source={require('../../assets/images/fotoperfil.png')} style={{ width: 36, height: 36, borderRadius: 18 }} />
+                      </View>
+                      <View className="flex-1">
+                        <View className="flex-row items-center justify-between">
+                          <Text className="text-[#2469A0] font-semibold text-sm mb-1">
+                            {item.autor ? item.autor : `Usuario ${item.idUsuario || ''}`}
+                          </Text>
+                          {String(item.idUsuario) === String(userId) ? (
+                            <Pressable onPress={() => handleDeleteComment(item.id)} hitSlop={10} style={{ marginLeft: 8 }}>
+                              <Feather name="trash-2" size={18} color="#E53935" />
+                            </Pressable>
+                          ) : null}
+                        </View>
+                        <Text className="text-[#2D2D2D] text-sm">{item.texto}</Text>
+                        {item.fecha_creacion ? (
+                          <Text className="text-[11px] text-[#999] mt-1">{formatDate(item.fecha_creacion)}</Text>
+                        ) : null}
+                      </View>
+                    </View>
+                  )}
+                  ListEmptyComponent={<View className="py-8 items-center"><Text className="text-[#757575] text-sm">Sé el primero en comentar.</Text></View>}
+                  style={{ maxHeight: 220 }}
+                  contentContainerStyle={{ paddingBottom: 10 }}
+                />
+              )}
+              <View className="border-t border-[#EAEAEA] pt-3 pb-6">
+                <View className="flex-row items-center">
+                  <TextInput
+                    value={commentText}
+                    onChangeText={setCommentText}
+                    placeholder={userId ? 'Escribe un comentario...' : 'Inicia sesión para comentar'}
+                    placeholderTextColor="#94A3B8"
+                    className="flex-1 bg-[#F1F1F1] rounded-full px-4 py-3 text-[#2469A0] text-sm"
+                    editable={!!userId && !commentBusy}
+                  />
+                  <Pressable
+                    onPress={submitComment}
+                    disabled={commentBusy || !userId || !commentText.trim()}
+                    className="ml-2 px-4 py-3 rounded-full"
+                    style={{ backgroundColor: commentBusy || !userId || !commentText.trim() ? '#EAEAEA' : '#10BCE2' }}
+                  >
+                    <Feather name="send" size={20} color={commentBusy || !userId || !commentText.trim() ? '#8B8B8B' : '#fff'} />
+                  </Pressable>
+                </View>
+                {commentsError && <Text className="text-red-500 text-xs mt-2">{commentsError}</Text>}
+              </View>
+            </View>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
 
@@ -742,8 +1032,6 @@ export default function ShareScreen() {
                         isMuted
                         onPlaybackStatusUpdate={(status) => {
                           if (status?.isLoaded && status.positionMillis > 1200) {
-                            // Stop playback after short preview
-                            // We can't mutate status, use ref to pause if needed via shouldPlay prop toggle
                           }
                         }}
                       />
@@ -846,6 +1134,49 @@ export default function ShareScreen() {
           </SafeAreaView>
         </View>
       </Modal>
+
+      <Modal
+        visible={deleteCardVisible}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setDeleteCardVisible(false)}
+      >
+        <View className="flex-1 items-center justify-center bg-black/40">
+          <View className="bg-white rounded-2xl p-8 w-80 shadow-2xl">
+            <Text className="text-lg font-bold text-[#E53935] mb-4">¿Seguro que quieres borrar?</Text>
+            <Text className="text-[#2D2D2D] mb-6">Esta acción no se puede deshacer.</Text>
+            <View className="flex-row justify-between">
+              <Pressable
+                onPress={() => setDeleteCardVisible(false)}
+                className="px-5 py-2 rounded-full"
+                style={{ backgroundColor: '#EAEAEA' }}
+                disabled={deleteBusy}
+              >
+                <Text className="text-[#2469A0] font-semibold">Cancelar</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleDeletePost}
+                className="px-5 py-2 rounded-full ml-3"
+                style={{ backgroundColor: '#E53935' }}
+                disabled={deleteBusy}
+              >
+                <Text className="text-white font-semibold">Borrar</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
+}
+
+function formatDate(iso) {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('es-NI', { day: '2-digit', month: 'short', year: 'numeric' }).replace('.', '');
+  } catch {
+    return '';
+  }
 }

@@ -9,14 +9,14 @@ import { Animated, Easing, Image, Text, TouchableOpacity, View } from 'react-nat
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { resolveUserId, submitQuizScore } from '../utils/api';
 
-export default function GeoQuizScreen() {
-  const QUIZ_ID = 2;
+export default function GastronomiaQuizScreen() {
+  const QUIZ_ID = 4;
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(null);
-  const [quiz, setQuiz] = React.useState(null); 
+  const [quiz, setQuiz] = React.useState(null);
   const [idx, setIdx] = React.useState(0);
   const [selectedId, setSelectedId] = React.useState(null);
-  const [feedback, setFeedback] = React.useState(null); 
+  const [feedback, setFeedback] = React.useState(null);
   const [busy, setBusy] = React.useState(false);
   const [correctCount, setCorrectCount] = React.useState(0);
   const [userId, setUserId] = React.useState(null);
@@ -43,11 +43,11 @@ export default function GeoQuizScreen() {
             const rid = resolveUserId(parsed);
             if (rid != null) {
               const numeric = Number(rid);
-              uid = Number.isFinite(numeric) ? numeric : rid; 
+              uid = Number.isFinite(numeric) ? numeric : rid;
               if (mounted) setUserId(uid);
-              console.log('[GeoQuiz] Resolved user id =>', uid);
+              console.log('[GastronomiaQuiz] Resolved user id =>', uid);
             } else {
-              console.log('[GeoQuiz] No user id found in session');
+              console.log('[GastronomiaQuiz] No user id found in session');
             }
           }
         } catch {}
@@ -74,7 +74,6 @@ export default function GeoQuizScreen() {
           if (mounted) setLoading(true);
           const res = await fetch(`https://kira-pink-theta.vercel.app/actividades/obtenerCuestionario/${QUIZ_ID}`);
           const json = await res.json();
-          console.log('Quiz API response:', JSON.stringify(json));
           if (!res.ok) throw new Error(json?.message || 'No se pudo obtener el cuestionario');
           const normalizeQuiz = (payload) => {
             let root = payload;
@@ -84,7 +83,6 @@ export default function GeoQuizScreen() {
               root = item?.cuestionario ?? item;
             }
             if (root?.cuestionario) root = root.cuestionario;
-
             const preguntas = Array.isArray(root?.preguntas) ? root.preguntas : [];
             return {
               titulo: root?.titulo ?? 'Cuestionario',
@@ -168,12 +166,12 @@ export default function GeoQuizScreen() {
             await AsyncStorage.setItem(`kira.quiz.result.${QUIZ_ID}.${keyUser}`, JSON.stringify(stats));
           } catch {}
           if (userId !== null && userId !== undefined) {
-            console.log('[GeoQuiz] Submitting score', { QUIZ_ID, userId, finalCorrect });
+            console.log('[GastronomiaQuiz] Submitting score', { QUIZ_ID, userId, finalCorrect });
             const result = await submitQuizScore(QUIZ_ID, userId, finalCorrect);
-            console.log('[GeoQuiz] Submit result =>', result);
+            console.log('[GastronomiaQuiz] Submit result =>', result);
             setSubmitInfo(result.ok ? { ok: true, ...(result.data || {}) } : { ok: false, ...(result.data || {}), error: result.error || result.data?.error });
           } else {
-            console.log('[GeoQuiz] Skip submit: userId missing');
+            console.log('[GastronomiaQuiz] Skip submit: userId missing');
           }
         } catch {}
         resultOpacity.setValue(0);
@@ -183,7 +181,7 @@ export default function GeoQuizScreen() {
           Animated.timing(resultTranslate, { toValue: 0, duration: 350, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
         ]).start();
         setCompleted(true);
-        setIdx(total); 
+        setIdx(total);
         setBusy(false);
       }
     }, 1200);
@@ -192,12 +190,7 @@ export default function GeoQuizScreen() {
   const answerColors = ['#10BCE2', '#3ED6AF', '#8CE27F', '#FEBA69'];
 
   return (
-    <LinearGradient
-      colors={["#2469A0", "#0D263A"]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 0, y: 1 }}
-      style={{ flex: 1 }}
-    >
+    <LinearGradient colors={["#2469A0", "#0D263A"]} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={{ flex: 1 }}>
       <SafeAreaView edges={['top']}>
         <View className="flex-row items-center justify-between px-4 pt-1 pb-2">
           <TouchableOpacity
@@ -219,7 +212,7 @@ export default function GeoQuizScreen() {
 
       <View className="mt-2 items-center">
         <View className="bg-white rounded-full px-5 py-4 shadow items-center" style={{ elevation: 3 }}>
-          <Text className="text-[#2469A0] font-extrabold text-md">Geografía Nicaraguense</Text>
+          <Text className="text-[#2469A0] font-extrabold text-md">Gastronomía Nicaraguense</Text>
         </View>
       </View>
 
@@ -240,9 +233,7 @@ export default function GeoQuizScreen() {
           <>
             <View className="bg-white rounded-2xl p-4" style={{ minHeight: 120 }}>
               <Text className="text-[#0D263A] text-xl font-extrabold">Pregunta {idx + 1}{total ? ` / ${total}` : ''}</Text>
-              <Text className="text-[#2D2D2D] mt-3 text-lg">
-                {current.pregunta}
-              </Text>
+              <Text className="text-[#2D2D2D] mt-3 text-lg">{current.pregunta}</Text>
             </View>
 
             <View className="mt-5">
@@ -278,15 +269,8 @@ export default function GeoQuizScreen() {
             </View>
 
             <View className="mt-1">
-              <View
-                style={{ height: 10 }}
-                className="bg-white/30 rounded-full overflow-hidden"
-                onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
-              >
-                <Animated.View
-                  className="bg-[#10BCE2]"
-                  style={{ width: progressWidth, height: '100%' }}
-                />
+              <View style={{ height: 10 }} className="bg-white/30 rounded-full overflow-hidden" onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}>
+                <Animated.View className="bg-[#10BCE2]" style={{ width: progressWidth, height: '100%' }} />
               </View>
               <Text className="text-white/90 text-center mt-2 text-sm">Progreso: {total ? idx + 1 : 0}/{total || 0}</Text>
             </View>
@@ -298,17 +282,10 @@ export default function GeoQuizScreen() {
         <View className="absolute inset-0 items-center justify-center">
           <Animated.View style={{ transform: [{ scale: feedbackScale }] }}>
             <View className="items-center justify-center rounded-2xl overflow-hidden" style={{ elevation: 4 }}>
-              <LinearGradient
-                colors={feedback === 'correct' ? ['#16A34A', '#22C55E'] : ['#DC2626', '#EF4444']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={{ paddingVertical: 22, paddingHorizontal: 28 }}
-              >
+              <LinearGradient colors={feedback === 'correct' ? ['#16A34A', '#22C55E'] : ['#DC2626', '#EF4444']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ paddingVertical: 22, paddingHorizontal: 28 }}>
                 <View className="items-center">
                   <Ionicons name={feedback === 'correct' ? 'checkmark-circle' : 'close-circle'} size={64} color="#FFFFFF" />
-                  <Text className="text-white text-2xl font-extrabold mt-2">
-                    {feedback === 'correct' ? '¡Correcto!' : 'Incorrecto'}
-                  </Text>
+                  <Text className="text-white text-2xl font-extrabold mt-2">{feedback === 'correct' ? '¡Correcto!' : 'Incorrecto'}</Text>
                 </View>
               </LinearGradient>
             </View>
@@ -318,23 +295,13 @@ export default function GeoQuizScreen() {
 
       {(completed || (!current && total > 0)) && (
         <View className="absolute inset-0 items-center justify-center px-6">
-          <Animated.View
-            className="bg-white rounded-2xl p-6 items-center w-full"
-            style={{ opacity: resultOpacity, transform: [{ translateY: resultTranslate }] }}
-          >
+          <Animated.View className="bg-white rounded-2xl p-6 items-center w-full" style={{ opacity: resultOpacity, transform: [{ translateY: resultTranslate }] }}>
             <Text className="text-[#2469A0] text-3xl font-extrabold mb-2">¡Resultados!</Text>
             <Text className="text-[#2D2D2D] text-lg mb-2">Correctas: {(finalResult?.correct ?? storedResult?.correct ?? correctCount)} / {(finalResult?.total ?? storedResult?.total ?? total)}</Text>
             <Text className="text-[#2D2D2D] text-base mb-4">Puntaje: {finalResult?.points ?? storedResult?.points ?? (quiz?.puntaje ? Math.round((correctCount / total) * quiz.puntaje) : correctCount)}</Text>
-            {!!submitInfo?.error && (
-              <Text className="text-red-600 text-sm mb-2 text-center">{String(submitInfo.error)}</Text>
-            )}
-            {!!submitInfo?.message && !submitInfo?.error && (
-              <Text className="text-emerald-600 text-sm mb-2 text-center">{String(submitInfo.message)}</Text>
-            )}
-            <TouchableOpacity
-              className="bg-[#2469A0] rounded-full px-6 py-3"
-              onPress={() => router.back()}
-            >
+            {!!submitInfo?.error && (<Text className="text-red-600 text-sm mb-2 text-center">{String(submitInfo.error)}</Text>)}
+            {!!submitInfo?.message && !submitInfo?.error && (<Text className="text-emerald-600 text-sm mb-2 text-center">{String(submitInfo.message)}</Text>)}
+            <TouchableOpacity className="bg-[#2469A0] rounded-full px-6 py-3" onPress={() => router.back()}>
               <Text className="text-white font-semibold">Volver</Text>
             </TouchableOpacity>
           </Animated.View>

@@ -1,3 +1,24 @@
+export const submitPersonajeScore = async (idPersonaje: number | string, idUsuario: number | string) => {
+  const url = `https://kira-pink-theta.vercel.app/actividades/sumarPuntajePersonaje`;
+  const payload = { idPersonaje: Number(idPersonaje), idUsuario: Number(idUsuario) };
+  console.log('[submitPersonajeScore] POST ->', url, payload);
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    let raw: string | null = null; try { raw = await res.text(); } catch {}
+    let json: any = null; try { json = raw ? JSON.parse(raw) : null; } catch {}
+    console.log('[submitPersonajeScore] status:', res.status, 'raw:', raw);
+    if (res.ok && json && json.message && !json.error) return { ok: true, status: res.status, message: json.message };
+    const errorMsg = json?.error || json?.message || 'error-desconocido';
+    return { ok: false, status: res.status, error: errorMsg, raw };
+  } catch (e: any) {
+    console.log('[submitPersonajeScore] exception:', e);
+    return { ok: false, error: e?.message || 'network-error' };
+  }
+};
 // Centralized API helpers for scoring and user id resolution
 import AsyncStorage from '@react-native-async-storage/async-storage';
 

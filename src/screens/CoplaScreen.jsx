@@ -61,21 +61,43 @@ export default function CoplaScreen() {
         const raw = await AsyncStorage.getItem('kira.session');
         if (raw) {
           const parsed = JSON.parse(raw);
-          const correo = parsed?.correo || '';
-          const name = correo?.split('@')[0] || 'usuario';
-          setUsername(name);
           const rid = resolveUserId(parsed);
-            const uid = (() => {
-              if (rid != null) {
-                const num = Number(rid);
-                return Number.isFinite(num) ? num : rid;
-              }
-              return name;
-            })();
+          const uid = (() => {
+            if (rid != null) {
+              const num = Number(rid);
+              return Number.isFinite(num) ? num : rid;
+            }
+            return 'usuario';
+          })();
           setUserIdRef(uid);
           loadPersistence(uid);
+          try {
+            const res = await fetch(`https://kira-pink-theta.vercel.app/users/nombreUsuario/${uid}`);
+            const json = await res.json();
+            if (res.ok && json?.nombre) {
+              setUsername(json.nombre);
+            } else {
+              setUsername('usuario');
+            }
+          } catch {
+            setUsername('usuario');
+          }
+          try {
+            const resScore = await fetch(`https://kira-pink-theta.vercel.app/users/puntajeUsuario/${uid}`);
+            const jsonScore = await resScore.json();
+            if (resScore.ok && jsonScore?.puntaje != null) {
+              const scoreNum = Number(jsonScore.puntaje);
+              setPoints(Number.isFinite(scoreNum) ? scoreNum : 0);
+            } else {
+              setPoints(0);
+            }
+          } catch {
+            setPoints(0);
+          }
         }
-      } catch {}
+      } catch {
+        setUsername('usuario');
+      }
       setPoints(0);
     })();
   }, []);
@@ -397,6 +419,10 @@ export default function CoplaScreen() {
           </View>
         </View>
       )}
+        <SafeAreaView edges={['bottom']} className="absolute bottom-0 left-0 right-0 bg-[#D9D9D9]">
+              <Text className="text-center text-[#797979] font-semibold py-2">Más coplas pronto...</Text>
+            </SafeAreaView>
     </View>
+    
   );
 }

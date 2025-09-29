@@ -141,25 +141,15 @@ export default function RegisterScreen() {
         body: JSON.stringify(payload),
       });
       const json = await res.json();
-      if (json?.message && /existe|registrad|exists|taken/i.test(String(json.message))) {
-        setErrors((prev) => ({ ...prev, email: 'Este correo ya está registrado' }));
-        throw new Error('Este correo ya está registrado');
-      }
-      if (!res.ok) {
-        const msg = json?.message || '';
-        if (res.status === 409 || /existe|registrad/i.test(msg)) {
-          setErrors((prev) => ({ ...prev, email: 'Este correo ya está registrado' }));
-        }
-        throw new Error(msg || 'No se pudo registrar.');
-      }
+      console.log('Respuesta registro:', json); // Log para depuración
       if (res.status === 201 && json?.id) {
         Alert.alert('Registro exitoso', 'Tu cuenta fue creada. Ahora inicia sesión.');
         router.replace('/login');
         return;
+      } else {
+        // Mostrar cualquier mensaje de error que venga del backend
+        Alert.alert('Error', json?.message || JSON.stringify(json) || 'No se pudo registrar.');
       }
-      setErrors((prev) => ({ ...prev, email: 'Este correo ya está registrado' }));
-      Alert.alert('Correo en uso', 'Este correo ya está registrado. Inicia sesión con tu cuenta.');
-      return;
     } catch (e) {
       Alert.alert('Error', e?.message || 'No se pudo registrar.');
     } finally {
