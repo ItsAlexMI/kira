@@ -3,7 +3,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { FlatList, Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { resolveUserId } from '../utils/api';
 
@@ -132,116 +132,127 @@ export default function AdivinaQuienSoyScreen() {
               />
             </View>
           </View>
-          <View className="mt-5 flex-row flex-wrap justify-between gap-4 px-2">
-            {cards.map((card, idx) => {
-              const personaje = personajes[idx];
-              const adivinado = personaje && adivinados[personaje?.id];
-              const fallido = personaje && fallidos[personaje?.id];
-              const intentado = adivinado || fallido;
-              return (
-                <View
-                  key={idx}
-                  className="rounded-xl mb-6"
-                  style={{
-                    width: '48%',
-                    backgroundColor: card.colors[0],
-                    elevation: 4,
-                    shadowColor: card.colors[0],
-                    shadowOpacity: 0.18,
-                    shadowRadius: 10,
-                    shadowOffset: { width: 0, height: 4 },
-                    alignItems: 'center',
-                    minHeight: 260,
-                    position: 'relative',
-                    overflow: 'visible',
-                    borderRadius: 16,
-                    justifyContent: 'flex-end',
-                  }}
-                >
-                  <View style={{ width: '100%', alignItems: 'center', position: 'absolute', top: 0, left: 0, zIndex: 1 }}>
-                    <Image
-                      source={adivinado && personaje?.imagen ? { uri: personaje.imagen } : require('../../assets/images/personajemisterioso.png')}
-                      style={{ width: 110, height: 110, borderRadius: 18, marginTop: 8, maxWidth: '90%' }}
-                      resizeMode="contain"
-                    />
-                  </View>
-                  <View
-                    className="rounded-xl"
-                    style={{
-                      backgroundColor: '#fff',
-                      width: '100%',
-                      minHeight: 170,
-                      marginTop: 0,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      position: 'absolute',
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      shadowColor: '#000',
-                      shadowOpacity: 0.08,
-                      shadowRadius: 6,
-                      shadowOffset: { width: 0, height: 2 },
-                      elevation: 3,
-                      borderRadius: 16,
-                      overflow: 'visible',
-                      zIndex: 2,
-                    }}
-                  >
-                    <View style={{ width: '100%', alignItems: 'center', justifyContent: 'center', height: 110 }}>
-                      <Text
-                        style={{ color: '#2469A0', fontWeight: 'bold', fontSize: 14, textAlign: 'center', marginTop: 0, marginBottom: 0, lineHeight: 22 }}
-                      >
-                        {adivinado && personaje ? personaje.nombre : fallido ? 'Fallaste el intento' : personaje ? 'adivina el personaje' : 'Más personajes pronto'}
-                      </Text>
-                      {adivinado && personaje && (
-                        <Text
-                          style={{ color: '#797979', fontSize: 13, textAlign: 'center', marginTop: 2, marginBottom: 0, lineHeight: 18 }}
-                          numberOfLines={2}
-                          ellipsizeMode="tail"
-                        >
-                          {personaje.descripcion}
-                        </Text>
-                      )}
-                    </View>
-                    <Text
+          <FlatList
+            data={Array.from({ length: Math.ceil(cards.length / 2) }, (_, i) => cards.slice(i * 2, i * 2 + 2))}
+            horizontal
+            keyExtractor={(_, idx) => String(idx)}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingVertical: 24, gap: 16 }}
+            renderItem={({ item: cardPair, index: rowIdx }) => (
+              <View style={{ flexDirection: 'column', gap: 16 }}>
+                {cardPair.map((card, idx) => {
+                  const realIdx = rowIdx * 2 + idx;
+                  const personaje = personajes[realIdx];
+                  const adivinado = personaje && adivinados[personaje?.id];
+                  const fallido = personaje && fallidos[personaje?.id];
+                  const intentado = adivinado || fallido;
+                  return (
+                    <View
+                      key={realIdx}
+                      className="rounded-xl mb-6"
                       style={{
-                        position: 'absolute',
-                        top: 16,
-                        right: 18,
-                        color: '#A49E9E',
-                        fontWeight: 'bold',
-                        fontSize: 14,
+                        width: 180,
+                        backgroundColor: card.colors[0],
+                        elevation: 4,
+                        shadowColor: card.colors[0],
+                        shadowOpacity: 0.18,
+                        shadowRadius: 10,
+                        shadowOffset: { width: 0, height: 4 },
+                        alignItems: 'center',
+                        minHeight: 260,
+                        position: 'relative',
+                        overflow: 'visible',
+                        borderRadius: 16,
+                        justifyContent: 'flex-end',
+                        marginRight: 0,
                       }}
                     >
-                      {personaje ? `+${personaje.puntaje || 100} pts` : ''}
-                    </Text>
-                    {idx < 4 && !intentado && personaje && (
-                      <TouchableOpacity
+                      <View style={{ width: '100%', alignItems: 'center', position: 'absolute', top: 0, left: 0, zIndex: 1 }}>
+                        <Image
+                          source={adivinado && personaje?.imagen ? { uri: personaje.imagen } : require('../../assets/images/personajemisterioso.png')}
+                          style={{ width: 110, height: 110, borderRadius: 18, marginTop: 8, maxWidth: '90%' }}
+                          resizeMode="contain"
+                        />
+                      </View>
+                      <View
+                        className="rounded-xl"
                         style={{
+                          backgroundColor: '#fff',
+                          width: '100%',
+                          minHeight: 170,
+                          marginTop: 0,
+                          alignItems: 'center',
+                          justifyContent: 'center',
                           position: 'absolute',
-                          bottom: 14,
-                          right: 14,
-                          backgroundColor: card.colors[0],
-                          borderRadius: 999,
-                          paddingHorizontal: 14,
-                          paddingVertical: 6,
-                          elevation: 2,
-                        }}
-                        activeOpacity={0.85}
-                        onPress={async () => {
-                          await AsyncStorage.setItem('kira.adivina.idx', String(idx));
-                          router.push('/adivina-quien-soy-juego');
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          shadowColor: '#000',
+                          shadowOpacity: 0.08,
+                          shadowRadius: 6,
+                          shadowOffset: { width: 0, height: 2 },
+                          elevation: 3,
+                          borderRadius: 16,
+                          overflow: 'visible',
+                          zIndex: 2,
                         }}
                       >
-                        <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 13 }}>VAMOS</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                </View>
-              );
-            })}
-          </View>
+                        <View style={{ width: '100%', alignItems: 'center', justifyContent: 'center', height: 110 }}>
+                          <Text
+                            style={{ color: '#2469A0', fontWeight: 'bold', fontSize: 14, textAlign: 'center', marginTop: 0, marginBottom: 0, lineHeight: 22 }}
+                          >
+                            {adivinado && personaje ? personaje.nombre : fallido ? 'Fallaste el intento' : personaje ? 'adivina el personaje' : 'Más personajes pronto'}
+                          </Text>
+                          {adivinado && personaje && (
+                            <Text
+                              style={{ color: '#797979', fontSize: 13, textAlign: 'center', marginTop: 2, marginBottom: 0, lineHeight: 18 }}
+                              numberOfLines={2}
+                              ellipsizeMode="tail"
+                            >
+                              {personaje.descripcion}
+                            </Text>
+                          )}
+                        </View>
+                        <Text
+                          style={{
+                            position: 'absolute',
+                            top: 16,
+                            right: 18,
+                            color: '#A49E9E',
+                            fontWeight: 'bold',
+                            fontSize: 14,
+                          }}
+                        >
+                          {personaje ? `+${personaje.puntaje || 100} pts` : ''}
+                        </Text>
+                        {realIdx < 4 && !intentado && personaje && (
+                          <TouchableOpacity
+                            style={{
+                              position: 'absolute',
+                              bottom: 14,
+                              right: 14,
+                              backgroundColor: card.colors[0],
+                              borderRadius: 999,
+                              paddingHorizontal: 14,
+                              paddingVertical: 6,
+                              elevation: 2,
+                            }}
+                            activeOpacity={0.85}
+                            onPress={async () => {
+                              await AsyncStorage.setItem('kira.adivina.idx', String(realIdx));
+                              router.push('/adivina-quien-soy-juego');
+                            }}
+                          >
+                            <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 13 }}>VAMOS</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          />
         </View>
       </ScrollView>
       <SafeAreaView edges={['bottom']} className="absolute bottom-0 left-0 right-0 bg-[#D9D9D9]">

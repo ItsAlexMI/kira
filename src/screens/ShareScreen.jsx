@@ -966,19 +966,22 @@ export default function ShareScreen() {
         </View>
       </Modal>
 
-      <Pressable
-        onPress={() => setCreateVisible(true)}
-        style={{ position: 'absolute', bottom: 40 + (insets?.bottom ?? 0), right: 24 }}
-        accessibilityLabel="Crear post"
-      >
-        <LinearGradient
-          colors={["#2667A2", "#10BCE2"]}
-          start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-          style={{ padding: 18, borderRadius: 32, elevation: 4 }}
-        >
-          <Feather name="plus" size={26} color="#FFFFFF" />
-        </LinearGradient>
-      </Pressable>
+      <SafeAreaView pointerEvents="box-none" style={{ position: 'absolute', bottom: 0, right: 0, left: 0 }}>
+        <View style={{ position: 'absolute', right: 24, bottom: Math.max((insets?.bottom ?? 0) + 48, 48) }}>
+          <Pressable
+            onPress={() => setCreateVisible(true)}
+            accessibilityLabel="Crear post"
+          >
+            <LinearGradient
+              colors={["#2667A2", "#10BCE2"]}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+              style={{ padding: 18, borderRadius: 32, elevation: 4 }}
+            >
+              <Feather name="plus" size={26} color="#FFFFFF" />
+            </LinearGradient>
+          </Pressable>
+        </View>
+      </SafeAreaView>
 
       <Modal
         visible={createVisible}

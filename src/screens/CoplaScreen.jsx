@@ -138,6 +138,7 @@ export default function CoplaScreen() {
   }, []);
 
 
+
   return (
     <View className="flex-1 bg-[#F1F1F1]">
       <SafeAreaView edges={['top']}>
@@ -197,17 +198,10 @@ export default function CoplaScreen() {
       <View className="mt-5 px-4" style={{ width: '100%' }}>
         <Video
           source={videoSource}
-          useNativeControls
-          resizeMode="contain"
-          shouldPlay={false}
-          isLooping={false}
           style={{ width: '100%', height: videoHeight, backgroundColor: '#000' }}
-          onError={() => {
-            if (!attemptedFallback) {
-              setAttemptedFallback(true);
-              setVideoSource(require('../../assets/images/video.mp4'));
-            }
-          }}
+          resizeMode="contain"
+          useNativeControls
+          shouldPlay
         />
         {attemptedFallback ? (
           <Text className="text-center text-gray-500 mt-2">

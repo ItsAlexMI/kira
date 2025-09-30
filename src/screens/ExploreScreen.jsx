@@ -73,23 +73,17 @@ export default function ExploreScreen() {
             key={p.id}
             coordinate={p.coordinate}
             anchor={{ x: 0.5, y: 1 }}
-            tracksViewChanges={false}
             onPress={() => openSheetFor(p.id)}
           >
-            <View className="items-center">
-              <View
-                className="w-4 h-4 rounded-full bg-[#2469A0] border-2 border-white"
-                style={{ elevation: 4 }}
-              />
-              <View
-                className="bg-[#2469A0]"
-                style={{ width: 8, height: 8, marginTop: -4, transform: [{ rotate: '45deg' }] }}
-              />
+            {/* Marker icon: simple View for cross-platform compatibility */}
+            <View style={{ alignItems: 'center' }}>
+              <View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: '#2469A0', borderWidth: 2, borderColor: '#fff', elevation: 4 }} />
+              <View style={{ width: 8, height: 8, marginTop: -4, backgroundColor: '#2469A0', transform: [{ rotate: '45deg' }] }} />
             </View>
             <Callout>
-              <View className="w-56 p-3">
-                <Text className="text-[#2469A0] text-base font-semibold">{p.title}</Text>
-                <Text className="text-gray-700 mt-2">{p.description}</Text>
+              <View style={{ width: 224, padding: 12 }}>
+                <Text style={{ color: '#2469A0', fontSize: 16, fontWeight: '600' }}>{p.title}</Text>
+                <Text style={{ color: '#555', marginTop: 8 }}>{p.description}</Text>
               </View>
             </Callout>
           </Marker>
