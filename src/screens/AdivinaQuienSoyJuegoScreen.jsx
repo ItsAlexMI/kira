@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { ChevronLeft, Search } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { Image, KeyboardAvoidingView, Platform, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Image, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { resolveUserId, submitPersonajeScore } from '../utils/api';
 
@@ -112,15 +112,16 @@ export default function AdivinaQuienSoyJuegoScreen() {
         </View>
       </SafeAreaView>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-        <TouchableOpacity
-          activeOpacity={1}
-          style={{ flex: 1 }}
-          onPress={() => {
-            if (Platform.OS !== 'web') {
-              try { require('react-native').Keyboard.dismiss(); } catch {}
-            }
-          }}
-        >
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
+          <TouchableOpacity
+            activeOpacity={1}
+            style={{ flex: 1 }}
+            onPress={() => {
+              if (Platform.OS !== 'web') {
+                try { require('react-native').Keyboard.dismiss(); } catch {}
+              }
+            }}
+          >
           <View className="flex-1 items-center px-4 pt-2">
             <View className="bg-white rounded-2xl p-5 shadow items-center mb-4" style={{ elevation: 3, width: '100%' }}>
               <Text className="text-[#2469A0] font-extrabold text-lg">Adivina quién soy</Text>
@@ -180,6 +181,7 @@ export default function AdivinaQuienSoyJuegoScreen() {
             )}
           </View>
         </TouchableOpacity>
+        </ScrollView>
       </KeyboardAvoidingView>
     </LinearGradient>
   );

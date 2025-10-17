@@ -3,7 +3,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { Asset } from 'expo-asset';
 import { Video } from 'expo-av';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
+import { downloadAsync } from 'expo-file-system/legacy';
+import { manipulateAsync } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as MediaLibrary from 'expo-media-library';
@@ -534,8 +536,13 @@ export default function ShareScreen() {
   };
 
   const saveCurrentImage = async () => {
-    if (!fullImageSource) return;
+    if (!fullImageSource) {
+      Alert.alert('Error', 'No hay imagen para guardar.');
+      return;
+    }
+    console.log('saveCurrentImage: Starting save for', fullImageSource);
     const perm = await MediaLibrary.requestPermissionsAsync();
+    console.log('saveCurrentImage: Permissions granted?', perm.granted);
     if (!perm.granted) {
       Alert.alert('Permiso requerido', 'Necesitamos acceso a la galería para guardar imágenes.');
       return;
@@ -543,19 +550,43 @@ export default function ShareScreen() {
     try {
       let localUri = null;
       if (typeof fullImageSource === 'number') {
+        console.log('saveCurrentImage: Handling local asset');
         const asset = Asset.fromModule(fullImageSource);
         await asset.downloadAsync();
         localUri = asset.localUri || asset.uri;
+        console.log('saveCurrentImage: Local asset URI', localUri);
       } else if (fullImageSource?.uri) {
-        const fileName = `image-${Date.now()}.jpg`;
-        const download = await FileSystem.downloadAsync(fullImageSource.uri, FileSystem.cacheDirectory + fileName);
-        localUri = download.uri;
+        console.log('saveCurrentImage: Downloading remote image from', fullImageSource.uri);
+        const downloadRes = await downloadAsync(fullImageSource.uri, FileSystem.cacheDirectory + `temp-${Date.now()}`);
+        console.log('saveCurrentImage: Download result', downloadRes);
+        if (downloadRes.status !== 200) {
+          throw new Error(`Download failed with status ${downloadRes.status}`);
+        }
+        let ext = 'jpg';
+        if (downloadRes.mimeType === 'image/webp') ext = 'webp';
+        else if (downloadRes.mimeType === 'image/png') ext = 'png';
+        else if (downloadRes.mimeType === 'image/jpeg' || downloadRes.mimeType === 'image/jpg') ext = 'jpg';
+        const fileName = `image-${Date.now()}.${ext}`;
+        const finalUri = FileSystem.cacheDirectory + fileName;
+        await FileSystem.moveAsync({ from: downloadRes.uri, to: finalUri });
+        localUri = finalUri;
+        if (ext === 'webp') {
+          console.log('saveCurrentImage: Converting webp to jpg');
+          const manipulated = await manipulateAsync(localUri, [], { format: 'jpeg' });
+          localUri = manipulated.uri;
+          console.log('saveCurrentImage: Converted to', localUri);
+        }
       }
-      if (!localUri) throw new Error('No se pudo obtener la imagen');
+      if (!localUri) {
+        throw new Error('No se pudo obtener la URI local de la imagen');
+      }
+      console.log('saveCurrentImage: Saving to library', localUri);
       await MediaLibrary.saveToLibraryAsync(localUri);
+      console.log('saveCurrentImage: Saved successfully');
       Alert.alert('Guardado', 'La imagen se guardó en tu galería.');
     } catch (e) {
-      Alert.alert('Error', 'No se pudo guardar la imagen.');
+      console.error('saveCurrentImage: Error saving image', e);
+      Alert.alert('Error', `No se pudo guardar la imagen: ${e.message || e.toString()}`);
     }
   };
 

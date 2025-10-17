@@ -3,7 +3,7 @@ import { Video } from 'expo-av';
 import { router } from 'expo-router';
 import { ChevronLeft, FilePenLine, PencilLine } from 'lucide-react-native';
 import React from 'react';
-import { Dimensions, Image, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { resolveUserId, submitCoplaScore } from '../utils/api';
 
@@ -26,7 +26,21 @@ export default function CoplaScreen() {
   const [submitting, setSubmitting] = React.useState(false);
   const [userIdRef, setUserIdRef] = React.useState(null);
   const [feedback, setFeedback] = React.useState(null); 
-
+  React.useEffect(() => {0.
+    if (userIdRef == null) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`https://kira-pink-theta.vercel.app/users/puntajeUsuario/${userIdRef}`);
+        const json = await res.json();
+        if (!cancelled && res.ok && json?.puntaje != null) {
+          const scoreNum = Number(json.puntaje);
+          setPoints(Number.isFinite(scoreNum) ? scoreNum : 0);
+        }
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, [userIdRef]);
   React.useEffect(() => {
     if (feedback) {
       const t = setTimeout(() => setFeedback(null), 1800);
@@ -62,43 +76,49 @@ export default function CoplaScreen() {
         if (raw) {
           const parsed = JSON.parse(raw);
           const rid = resolveUserId(parsed);
-          const uid = (() => {
-            if (rid != null) {
-              const num = Number(rid);
-              return Number.isFinite(num) ? num : rid;
-            }
-            return 'usuario';
-          })();
+          let uid = null;
+          if (rid != null) {
+            const num = Number(rid);
+            uid = Number.isFinite(num) ? num : rid;
+          }
           setUserIdRef(uid);
-          loadPersistence(uid);
-          try {
-            const res = await fetch(`https://kira-pink-theta.vercel.app/users/nombreUsuario/${uid}`);
-            const json = await res.json();
-            if (res.ok && json?.nombre) {
-              setUsername(json.nombre);
-            } else {
+          if (uid) {
+            loadPersistence(uid);
+            try {
+              const res = await fetch(`https://kira-pink-theta.vercel.app/users/nombreUsuario/${uid}`);
+              const json = await res.json();
+              if (res.ok && json?.nombre) {
+                setUsername(json.nombre);
+              } else {
+                setUsername('usuario');
+              }
+            } catch {
               setUsername('usuario');
             }
-          } catch {
-            setUsername('usuario');
-          }
-          try {
-            const resScore = await fetch(`https://kira-pink-theta.vercel.app/users/puntajeUsuario/${uid}`);
-            const jsonScore = await resScore.json();
-            if (resScore.ok && jsonScore?.puntaje != null) {
-              const scoreNum = Number(jsonScore.puntaje);
-              setPoints(Number.isFinite(scoreNum) ? scoreNum : 0);
-            } else {
+            try {
+              const resScore = await fetch(`https://kira-pink-theta.vercel.app/users/puntajeUsuario/${uid}`);
+              const jsonScore = await resScore.json();
+              if (resScore.ok && jsonScore?.puntaje != null) {
+                const scoreNum = Number(jsonScore.puntaje);
+                setPoints(Number.isFinite(scoreNum) ? scoreNum : 0);
+              } else {
+                setPoints(0);
+              }
+            } catch {
               setPoints(0);
             }
-          } catch {
+          } else {
+            setUsername('usuario');
             setPoints(0);
           }
+        } else {
+          setUsername('usuario');
+          setPoints(0);
         }
       } catch {
         setUsername('usuario');
+        setPoints(0);
       }
-      setPoints(0);
     })();
   }, []);
 
@@ -269,22 +289,23 @@ export default function CoplaScreen() {
         animationType="fade"
         onRequestClose={() => setModalVisible(false)}
       >
-        <View className="flex-1 bg-black/50 justify-center px-4">
-          <View
-            className="bg-white rounded-3xl"
-            style={{
-              paddingHorizontal: 28,
-              paddingTop: 58,
-              paddingBottom: 34,
-              shadowColor: '#000',
-              shadowOpacity: 0.18,
-              shadowRadius: 18,
-              shadowOffset: { width: 0, height: 6 },
-              elevation: 8,
-              minHeight: 360,
-              width: '100%'
-            }}
-          >
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'position'} style={{ flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <View className="px-4">
+            <View
+              className="bg-white rounded-3xl"
+              style={{
+                paddingHorizontal: 28,
+                paddingTop: 58,
+                paddingBottom: 34,
+                shadowColor: '#000',
+                shadowOpacity: 0.18,
+                shadowRadius: 18,
+                shadowOffset: { width: 0, height: 6 },
+                elevation: 8,
+                minHeight: 360,
+                width: '100%'
+              }}
+            >
             {activeQuestion && (
               <View
                 pointerEvents="none"
@@ -345,6 +366,11 @@ export default function CoplaScreen() {
                   disabled={submitting || !answerText.trim()}
                   onPress={async () => {
                     if (!activeQuestion) return;
+                    if (!userIdRef) {
+                      setFeedback({ type: 'error', message: 'Inicia sesión para puntuar', color: '#DC2626' });
+                      setModalVisible(false);
+                      return;
+                    }
                     const normalize = (s) => s
                       .toLowerCase()
                       .normalize('NFD')
@@ -353,7 +379,7 @@ export default function CoplaScreen() {
                       .trim();
                     const userAns = normalize(answerText);
                     const correctAns = normalize(activeQuestion.respuesta || '');
-                    const userKey = userIdRef || 'anon';
+                    const userKey = userIdRef;
                     setSubmitting(true);
                     try {
                       if (userAns === correctAns) {
@@ -396,7 +422,8 @@ export default function CoplaScreen() {
               </>
             )}
           </View>
-        </View>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
       {feedback && (
         <View pointerEvents="none" className="absolute inset-0 items-center justify-center">
