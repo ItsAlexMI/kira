@@ -142,16 +142,33 @@ export default function RegisterScreen() {
       });
       const json = await res.json();
       console.log('Respuesta registro:', json); // Log para depuración
-      if (res.status === 201 && json?.id) {
+      if (res.ok && json?.id) {
         Alert.alert('Registro exitoso', 'Tu cuenta fue creada. Ahora inicia sesión.');
         router.replace('/login');
         return;
       } else {
-        // Mostrar cualquier mensaje de error que venga del backend
-        Alert.alert('Error', json?.message || JSON.stringify(json) || 'No se pudo registrar.');
+        // Mensajes de error amigables para el usuario
+        let errorMsg = 'No se pudo completar el registro. Inténtalo de nuevo.';
+        if (json?.message) {
+          const msg = json.message.toLowerCase();
+          if (msg.includes('duplicate') || msg.includes('ya existe') || msg.includes('existe')) {
+            errorMsg = 'El correo o nombre de usuario ya está registrado.';
+          } else if (msg.includes('invalid') || msg.includes('válido') || msg.includes('formato')) {
+            errorMsg = 'Los datos proporcionados no son válidos. Revisa tu información.';
+          } else if (msg.includes('password') || msg.includes('contraseña')) {
+            errorMsg = 'La contraseña no cumple con los requisitos.';
+          } else if (msg.includes('email') || msg.includes('correo')) {
+            errorMsg = 'El correo electrónico no es válido o ya está en uso.';
+          } else {
+            // Si el mensaje parece técnico, usar genérico
+            errorMsg = msg.length < 100 ? json.message : 'Ocurrió un error inesperado. Contacta soporte si persiste.';
+          }
+        }
+        Alert.alert('Error en registro', errorMsg);
       }
     } catch (e) {
-      Alert.alert('Error', e?.message || 'No se pudo registrar.');
+      console.error('Error en registro:', e);
+      Alert.alert('Error de conexión', 'No se pudo conectar al servidor. Revisa tu conexión a internet e inténtalo de nuevo.');
     } finally {
       setLoading(false);
     }
