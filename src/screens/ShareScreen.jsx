@@ -1209,7 +1209,11 @@ function formatDate(iso) {
   try {
     const d = new Date(iso);
     if (isNaN(d.getTime())) return '';
-    return d.toLocaleDateString('es-NI', { day: '2-digit', month: 'short', year: 'numeric' }).replace('.', '');
+    const year = d.getUTCFullYear();
+    const month = d.getUTCMonth();
+    const day = d.getUTCDate();
+    const date = new Date(year, month, day);
+    return date.toLocaleDateString('es-NI', { day: '2-digit', month: 'short', year: 'numeric' }).replace('.', '');
   } catch {
     return '';
   }

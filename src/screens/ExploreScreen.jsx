@@ -78,7 +78,7 @@ export default function ExploreScreen() {
             <View className="items-center">
               {selected?.image ? (
                 <Image
-                  source={selected.image}
+                  source={{uri: selected.image}}
                   className="w-full h-48"
                   resizeMode="contain"
                 />

@@ -1,10 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
+import { Video } from 'expo-av';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { LogOut } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { FlatList, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const eventos = {
@@ -228,8 +229,44 @@ export default function IndexScren() {
     const aspect = asset && asset.width && asset.height ? asset.width / asset.height : 16 / 9;
     return { key: `discover-${idx}`, src, aspect };
   });
+  const discoverContents = [
+    {
+      title: 'Lugares',
+      videos: [
+        "https://pub-dc88437b1eb54374b54af12eb03423a9.r2.dev/ssstik.io_%40.gonzz6_1760705320666.mp4",
+        "https://pub-dc88437b1eb54374b54af12eb03423a9.r2.dev/ssstik.io_%40darwin.viajero_1760705299777.mp4",
+        "https://pub-dc88437b1eb54374b54af12eb03423a9.r2.dev/ssstik.io_%40giuliogroebert_1760705309530.mp4",
+        "https://pub-dc88437b1eb54374b54af12eb03423a9.r2.dev/ssstik.io_%40nicphotography505_1760705290773.mp4",
+        "https://pub-dc88437b1eb54374b54af12eb03423a9.r2.dev/ssstik.io_%40oldtimeroad_1760705330527.mp4"
+      ]
+    },
+    {
+      title: 'Música',
+      videos: [
+        "https://pub-dc88437b1eb54374b54af12eb03423a9.r2.dev/ssstik.io_%40hamlet_nica_1760705876993.mp4",
+        "https://pub-dc88437b1eb54374b54af12eb03423a9.r2.dev/ssstik.io_%40juan_caldera.2020_1760705912871.mp4",
+        "https://pub-dc88437b1eb54374b54af12eb03423a9.r2.dev/ssstik.io_%40luisgt502502_1760705901783.mp4",
+        "https://pub-dc88437b1eb54374b54af12eb03423a9.r2.dev/ssstik.io_%40letrasysuspiros2097_1760705890125.mp4"
+
+      ]
+    },
+    {
+      title: 'Folklore',
+      videos: [
+        "https://pub-dc88437b1eb54374b54af12eb03423a9.r2.dev/ssstik.io_%40roger.ess__1760706297546.mp4",
+        "https://pub-dc88437b1eb54374b54af12eb03423a9.r2.dev/ssstik.io_%40yohanynica_1760706288205.mp4",
+        "https://pub-dc88437b1eb54374b54af12eb03423a9.r2.dev/ssstik.io_%40orellana_.98_1760706274872.mp4",
+        "https://pub-dc88437b1eb54374b54af12eb03423a9.r2.dev/ssstik.io_%40luisbayoni_1760706262177.mp4"
+      ]
+    }
+  ];
   const [userHandle, setUserHandle] = useState('usuario');
   const [userPoints, setUserPoints] = useState(0);
+  const [selectedDiscover, setSelectedDiscover] = useState(null);
+  const [discoverModalVisible, setDiscoverModalVisible] = useState(false);
+  const [fullVideoVisible, setFullVideoVisible] = useState(false);
+  const [fullVideoSource, setFullVideoSource] = useState(null);
+  const [discoverModalWasVisible, setDiscoverModalWasVisible] = useState(false);
   useFocusEffect(
     React.useCallback(() => {
       let mounted = true;
@@ -334,18 +371,23 @@ export default function IndexScren() {
             contentContainerStyle={{ paddingHorizontal: 0, paddingVertical: 12 }}
           >
             <View className="flex-row">
-              {discoverItems.map((item) => (
-                <View
+              {discoverItems.map((item, idx) => (
+                <TouchableOpacity
                   key={item.key}
                   className="h-64 m-5 rounded-2xl"
                   style={{ aspectRatio: item.aspect, overflow: 'hidden' }}
+                  onPress={() => {
+                    setSelectedDiscover(idx);
+                    setDiscoverModalVisible(true);
+                  }}
+                  activeOpacity={0.8}
                 >
                   <Image
                     source={item.src}
                     className="w-full h-full"
                     resizeMode="contain"
                   />
-                </View>
+                </TouchableOpacity>
               ))}
             </View>
           </ScrollView>
@@ -433,6 +475,104 @@ export default function IndexScren() {
 
         <Calendario className="mt-5" />
       </ScrollView>
+
+      <Modal
+        visible={discoverModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setDiscoverModalVisible(false)}
+      >
+        <View className="flex-1 justify-end bg-black/40">
+          <View className="bg-white rounded-t-3xl p-4 max-h-[80%]">
+            <Pressable
+              onPress={() => setDiscoverModalVisible(false)}
+              accessibilityRole="button"
+              accessibilityLabel="Cerrar"
+              className="absolute top-2 right-4 z-10 w-10 h-10 rounded-full items-center justify-center bg-gray-200"
+              style={{ shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 3 }}
+            >
+              <Text className="text-gray-800 text-base">✕</Text>
+            </Pressable>
+            <Text className="text-lg font-extrabold text-[#2469A0] text-center mt-2">
+              {selectedDiscover !== null ? discoverContents[selectedDiscover].title : ''}
+            </Text>
+            <ScrollView
+              className="mt-3"
+              contentContainerStyle={{ paddingBottom: 20 }}
+            >
+              <View className="flex-row flex-wrap -mx-1">
+                {selectedDiscover !== null && discoverContents[selectedDiscover].videos.map((video, idx) => (
+                  <View key={idx} className="w-1/2 px-1 mb-2">
+                    <Pressable
+                      onPress={() => {
+                        setDiscoverModalWasVisible(discoverModalVisible);
+                        setDiscoverModalVisible(false);
+                        setFullVideoSource({ uri: video });
+                        setFullVideoVisible(true);
+                      }}
+                    >
+                      <Video
+                        source={{ uri: video }}
+                        style={{ width: '100%', height: 250 }}
+                        resizeMode="cover"
+                        shouldPlay={false}
+                        isMuted={true}
+                      />
+                    </Pressable>
+                  </View>
+                ))}
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={fullVideoVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setFullVideoVisible(false);
+          if (discoverModalWasVisible) {
+            setDiscoverModalVisible(true);
+            setDiscoverModalWasVisible(false);
+          }
+        }}
+      >
+        <View className="flex-1 bg-black">
+          <Pressable style={{ flex: 1 }} onPress={() => {
+            setFullVideoVisible(false);
+            if (discoverModalWasVisible) {
+              setDiscoverModalVisible(true);
+              setDiscoverModalWasVisible(false);
+            }
+          }}>
+            <View className="flex-1 items-center justify-center">
+              {fullVideoSource ? (
+                <Video
+                  source={fullVideoSource}
+                  style={{ width: '90%', height: '80%' }}
+                  useNativeControls
+                  resizeMode="contain"
+                  shouldPlay={true}
+                />
+              ) : null}
+              <Pressable
+                onPress={() => {
+                  setFullVideoVisible(false);
+                  if (discoverModalWasVisible) {
+                    setDiscoverModalVisible(true);
+                    setDiscoverModalWasVisible(false);
+                  }
+                }}
+                style={{ position: 'absolute', top: 40, right: 20, padding: 10 }}
+              >
+                <Text className="text-white text-2xl">✕</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </View>
+      </Modal>
     </View>
   );
 }
