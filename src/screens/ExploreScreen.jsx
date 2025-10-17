@@ -1,8 +1,8 @@
-import { Video } from 'expo-av';
 import React, { useMemo, useState } from 'react';
 import { Image, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import MapView, { Callout, Marker } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { places } from '../utils/places';
 
 
 export default function ExploreScreen() {
@@ -12,38 +12,6 @@ export default function ExploreScreen() {
     latitudeDelta: 5.5,
     longitudeDelta: 5.5,
   };
-  const places = [
-    {
-      id: 'managua-center',
-      coordinate: { latitude: 12.136389, longitude: -86.251389 },
-      title: 'Managua, Nicaragua',
-      description: 'Descubre nuestras memorias y lugares destacados de la capital.',
-      image: require('../../assets/images/react-logo.png'),
-      highlight: { primary: 'Managua, ', secondary: 'Nicaragua' },
-      videos: [
-        require('../../assets/images/video.mp4'),
-        require('../../assets/images/video.mp4'),
-        require('../../assets/images/video.mp4'),
-      ],
-    },
-    {
-      id: 'teatro-ruben-dario',
-      coordinate: { latitude: 12.158491128974578, longitude: -86.27246175872068 },
-      title: 'Teatro Nacional Rubén Darío',
-      description: 'El Teatro Nacional Rubén Darío, inaugurado en 1969 en honor al poeta nicaragüense, es uno de los más prestigiosos de Centroamérica. Sobrevivió al terremoto de 1972 y hoy es un símbolo cultural de Nicaragua, reconocido por su arquitectura moderna, gran acústica y escenario de importantes eventos artísticos.',
-      image: require('../../assets/images/teatrord.png'),
-      highlight: { primary: 'Teatro Nacional Rubén Darío', secondary: ' - Managua' },
-      videos: [
-        require('../../assets/images/video.mp4'),
-        require('../../assets/images/video.mp4'),
-        require('../../assets/images/video.mp4'),
-         require('../../assets/images/video.mp4'),
-        require('../../assets/images/video.mp4'),
-        require('../../assets/images/video.mp4'),
-      ],
-    },
-    
-  ];
 
   const [selectedId, setSelectedId] = useState(null);
   const selected = useMemo(() => places.find(p => p.id === selectedId) || null, [selectedId]);
@@ -137,19 +105,16 @@ export default function ExploreScreen() {
                 <Text className="text-gray-500 text-base">{selected.description}</Text>
               ) : null}
 
-              {selected?.videos?.length ? (
+              {selected?.images?.length ? (
                 <View className="mt-6">
-                  <Text className="text-lg font-extrabold text-[#2469A0]">Videos relacionados</Text>
+                  <Text className="text-lg font-extrabold text-[#2469A0]">Imágenes relacionadas</Text>
                   <View className="mt-3 flex-row flex-wrap -mx-1">
-                    {selected.videos.map((v, idx) => (
+                    {selected.images.map((v, idx) => (
                       <View key={idx} className="w-1/2 px-1 mb-2">
-                        <Video
-                          source={v}
-                          useNativeControls
+                        <Image
+                          source={{uri: v}}
                           resizeMode="contain"
                           style={{ width: '100%', height: 200 }}
-                          isLooping={false}
-                          shouldPlay={false}
                         />
                       </View>
                     ))}
